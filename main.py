@@ -45,3 +45,5 @@ for i in sectored_map.values():
                         pval = coint(merge.iloc[:, 0], merge.iloc[:, 1])[1]
                         if pval < 0.05:
                             pairs.append({'Stock_a':substocks[j], 'Stock_b':substocks[k], 'p-value':pval})
+
+print(pairs)
