@@ -6,8 +6,7 @@ import matplotlib.pyplot as plt
 
 class Strategy:
 
-    def __init__(self, df, stockA, stockB, *, half_life: float, t1_weight: float = 0.70, entry_z1, entry_z2, exit_z,
-                 stop_z, rolling_hedge=True):
+    def __init__(self, df, stockA, stockB, *, half_life, t1_weight = 0.70, entry_z1, entry_z2, exit_z, stop_z, rolling_hedge=True):
         self.df = df[[stockA, stockB]].dropna()
         self.stockA = stockA
         self.stockB = stockB
@@ -26,14 +25,19 @@ class Strategy:
         self._oos_start, self._equity, self._pnl = None, None, None
 
     def _rolling_ols(self, A, B, window):
+
         Bm = B.rolling(window).mean()
         Am = A.rolling(window).mean()
+
         Bc = B - Bm
         Ac = A - Am
+
         num = (Bc * Ac).rolling(window).sum()
         den = (Bc ** 2).rolling(window).sum()
+
         beta = num / den.replace(0, np.nan)
         alpha = Am - beta * Bm
+
         return alpha, beta
 
     def OLS(self):
@@ -60,7 +64,7 @@ class Strategy:
         self._roll_std_z = roll_std
         self._roll_vol_10 = self.spread.rolling(10).std()
 
-    def _tranche_targets(self, current_z: float, z_prev: float = None) -> tuple:
+    def _tranche_targets(self, current_z):
 
         if current_z > self.stop_z or current_z < -self.stop_z:
             return 0.0, 0.0
@@ -102,8 +106,6 @@ class Strategy:
                 pos[i] = current
                 continue
 
-            z_prev = zvals[i - 1] if i > 0 else np.nan
-
             if abs(zi) >= sz:
                 current = 0.0
                 pos[i] = current
@@ -118,7 +120,7 @@ class Strategy:
                 pos[i] = current
                 continue
 
-            long_t, short_t = self._tranche_targets(zi, z_prev)
+            long_t, short_t = self._tranche_targets(zi)
 
             v10 = self._roll_vol_10.iloc[i]
             vz = self._roll_std_z.iloc[i]
@@ -147,6 +149,7 @@ class Strategy:
         self.position = pd.Series(pos, index=idx, name="position")
 
     def backtest(self, transaction_cost_bps=0.0, start_date="2021-01-01"):
+
         if self.position is None or self._oos_start != pd.Timestamp(start_date):
             self.generate_signals(start_date=start_date)
 
@@ -195,20 +198,26 @@ class Strategy:
         }
 
     def plotOLS(self, start_date=None):
+
         if self.z_score is None:
             self.OLS()
         self.z_score.plot(figsize=(10, 4))
+
         for lvl, sty in [(self.entry_z1, "--"), (self.entry_z2, "--")]:
+
             plt.axhline(lvl, color="red", linestyle=sty, alpha=0.75)
             plt.axhline(-lvl, color="green", linestyle=sty, alpha=0.75)
+
         plt.axhline(self.stop_z, color="darkred", linestyle="-", linewidth=1.0, alpha=0.6)
         plt.axhline(-self.stop_z, color="darkgreen", linestyle="-", linewidth=1.0, alpha=0.6)
         plt.axhline(self.exit_z, color="red", linestyle=":", alpha=0.5)
         plt.axhline(-self.exit_z, color="green", linestyle=":", alpha=0.5)
         plt.axhline(0, color="black", linewidth=0.8)
+
         if start_date is not None:
             plt.axvline(pd.Timestamp(start_date), color="blue", linestyle="--", alpha=0.7, label="OOS start")
             plt.legend(loc="upper right")
+
         plt.title(f"z-score: {self.stockA} vs {self.stockB}")
         plt.tight_layout()
         plt.show()

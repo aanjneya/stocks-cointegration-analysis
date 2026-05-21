@@ -15,7 +15,7 @@ os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
 run_macro = False
 run_all = False
-# Current Best Known Parameters
+
 base_rebalance = 30
 base_lookback = 504
 base_entry_z1 = 2.9
@@ -59,11 +59,9 @@ def macro(trial):
 def micro(trial):
     entry_z1 = trial.suggest_float('entry_z1', 1.0, 3.0, step=0.1)
 
-    # must be larger than Z1
     z2_gap = trial.suggest_float('z2_gap', 0.2, 1.5, step=0.1)
     entry_z2 = entry_z1 + z2_gap
 
-    # must be larger than Z2
     stop_gap = trial.suggest_float('stop_gap', 0.5, 2.0, step=0.1)
     stop_z = entry_z2 + stop_gap
 
@@ -144,7 +142,6 @@ def run_worker_process(_):
         engine_kwargs={"connect_args": {"timeout": 60.0}}
     )
 
-    # Load the shared study from the database
     study = optuna.load_study(
         study_name=study_name,
         storage=storage

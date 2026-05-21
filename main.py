@@ -3,9 +3,8 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from numpy.linalg import LinAlgError
 
-from find_pairs import calculate_half_life, calculate_hurst, estimate_spread_ols, get_cointegrated_pairs
+from find_pairs import half_life, hurst, estimate_spread_ols, get_cointegrated_pairs
 from get_data import FetchStocks
 from ols import Strategy
 
@@ -31,7 +30,7 @@ MIN_OVERLAP = 180
 HURST_MAX = 0.45
 
 
-def _build_rebalance_dates(oos_index: pd.DatetimeIndex, first: pd.Timestamp, days_step: int) -> list[pd.Timestamp]:
+def _build_rebalance_dates(oos_index, first, days_step):
 
     oos_sorted = oos_index.sort_values()
     subset = oos_sorted[oos_sorted >= first]
@@ -39,7 +38,7 @@ def _build_rebalance_dates(oos_index: pd.DatetimeIndex, first: pd.Timestamp, day
     if len(subset) == 0:
         return []
 
-    dates: list[pd.Timestamp] = [pd.Timestamp(subset[0])]
+    dates = [pd.Timestamp(subset[0])]
 
     while True:
         cal_next = dates[-1] + pd.Timedelta(days=days_step)
@@ -49,7 +48,6 @@ def _build_rebalance_dates(oos_index: pd.DatetimeIndex, first: pd.Timestamp, day
             break
 
         t_new = pd.Timestamp(nxt[0])
-
         if t_new == dates[-1]:
             break
 
@@ -57,14 +55,19 @@ def _build_rebalance_dates(oos_index: pd.DatetimeIndex, first: pd.Timestamp, day
 
     return dates
 
-def _resolve_col(sym: str, columns: pd.Index) -> str | None:
+def _resolve_col(sym, columns):
+
     s = str(sym)
-    if s in columns: return s
+    if s in columns:
+        return s
+
     alt = s.replace(".", "-")
-    if alt in columns: return alt
+    if alt in columns:
+        return alt
+
     return None
 
-def run_walk_forward(params: dict = None, df_master: pd.DataFrame = None, df_tickers: pd.DataFrame = None) -> tuple[float, float]:
+def run_walk_forward(params= None, df_master= None, df_tickers= None, verbose= False):
 
     if params is None:
         params = DEFAULT_PARAMS
@@ -94,7 +97,7 @@ def run_walk_forward(params: dict = None, df_master: pd.DataFrame = None, df_tic
         return 0.0, 0.0
 
     daily_portfolio_return = pd.Series(0.0, index=oos_ix)
-    log_rows: list[dict] =[]
+    log_rows =[]
 
     for seg_i, T_start in enumerate(rebalance_dates):
         if seg_i + 1 < len(rebalance_dates):
@@ -106,13 +109,6 @@ def run_walk_forward(params: dict = None, df_master: pd.DataFrame = None, df_tic
         if len(seg_dates) == 0:
             continue
 
-        hist_disc = df_master.loc[:T_start].tail(lookback)
-        cache_key = f"{T_start.strftime('%Y-%m-%d')}_{lookback}"
-        if cache_key not in GLOBAL_PAIRS_CACHE:
-            GLOBAL_PAIRS_CACHE[cache_key] = get_cointegrated_pairs(hist_disc, df_tickers)
-
-        pairs = GLOBAL_PAIRS_CACHE[cache_key]
-
         hist_upto = df_master.loc[:T_start]
         if len(hist_upto) < lookback:
             continue
@@ -120,9 +116,16 @@ def run_walk_forward(params: dict = None, df_master: pd.DataFrame = None, df_tic
         rank_df = hist_upto.tail(lookback)
         if len(rank_df) < MIN_OVERLAP:
             continue
+
+        cache_key = f"{T_start.strftime('%Y-%m-%d')}_{lookback}"
+        if cache_key not in GLOBAL_PAIRS_CACHE:
+            GLOBAL_PAIRS_CACHE[cache_key] = get_cointegrated_pairs(rank_df, df_tickers)
+
+        pairs = GLOBAL_PAIRS_CACHE[cache_key]
+
         train_start = pd.Timestamp(rank_df.index[0]).strftime("%Y-%m-%d")
 
-        candidates: list[dict] =[]
+        candidates = []
         for p in pairs:
             a, b = p["stockA"], p["stockB"]
             try:
@@ -137,8 +140,8 @@ def run_walk_forward(params: dict = None, df_master: pd.DataFrame = None, df_tic
                 if spread.empty or len(spread) < MIN_OVERLAP:
                     continue
 
-                h = calculate_hurst(spread)
-                hl, beta_slope = calculate_half_life(spread)
+                h = hurst(spread)
+                hl, beta_slope = half_life(spread)
 
                 if np.isnan(h) or h >= HURST_MAX:
                     continue
@@ -149,12 +152,12 @@ def run_walk_forward(params: dict = None, df_master: pd.DataFrame = None, df_tic
                     "Stock_A": ca, "Stock_B": cb, "pValue": p["pValue"],
                     "hurst": h, "half_life": hl, "ou_lambda": -float(beta_slope),
                 })
-            except (LinAlgError, ValueError, KeyError, FloatingPointError, ZeroDivisionError):
+            except Exception:
                 continue
 
         candidates.sort(key=lambda r: r["half_life"])
-        top20: list[dict] = []
-        ticker_counts: dict[str, int] = {}
+        top20 = []
+        ticker_counts = {}
 
         for c in candidates:
             a, b = c["Stock_A"], c["Stock_B"]
@@ -174,13 +177,13 @@ def run_walk_forward(params: dict = None, df_master: pd.DataFrame = None, df_tic
                 ticker_counts[b] = ticker_counts.get(b, 0) + 1
 
                 if len(top20) >= 20: break
-            except (LinAlgError, ValueError, KeyError, FloatingPointError, ZeroDivisionError):
+            except Exception:
                 continue
 
         if not top20:
             continue
 
-        seg_portfolio: dict[str, pd.Series] = {}
+        seg_portfolio = {}
         T_start_str = T_start.strftime("%Y-%m-%d")
         seg_end_str = seg_dates[-1].strftime("%Y-%m-%d")
 
@@ -195,7 +198,7 @@ def run_walk_forward(params: dict = None, df_master: pd.DataFrame = None, df_tic
                     continue
 
                 strat_oos = Strategy(df_master, ma, mb, half_life=row["half_life"], **strat_risk_kw)
-                _, summ_oos = strat_oos.backtest(start_date=T_start_str, transaction_cost_bps=5.0)
+                strat_oos.backtest(start_date=T_start_str, transaction_cost_bps=5.0)
 
                 pnl_seg = strat_oos._pnl.reindex(seg_dates).fillna(0.0)
                 seg_portfolio[f"{ma}_{mb}"] = pnl_seg
@@ -206,16 +209,17 @@ def run_walk_forward(params: dict = None, df_master: pd.DataFrame = None, df_tic
                     "hurst": row["hurst"], "half_life": row["half_life"],
                     "segment_pair_return": float((1.0 + pnl_seg).prod() - 1.0),
                 })
-            except (LinAlgError, ValueError, KeyError, FloatingPointError, ZeroDivisionError):
+            except Exception:
                 continue
 
         if not seg_portfolio:
             continue
+
         seg_df = pd.DataFrame(seg_portfolio)
         seg_daily = seg_df.mean(axis=1)
         daily_portfolio_return.loc[seg_daily.index] = seg_daily
 
-    if params == DEFAULT_PARAMS:
+    if verbose:
         pd.DataFrame(log_rows).to_csv(ROOT / "oos_survivors.csv", index=False)
 
     portfolio_equity_curve = (1.0 + daily_portfolio_return).cumprod()
@@ -225,10 +229,10 @@ def run_walk_forward(params: dict = None, df_master: pd.DataFrame = None, df_tic
         p_sharpe = float(daily_portfolio_return.mean() / vol * np.sqrt(252)) if vol and vol > 0 else 0.0
         p_dd = float((portfolio_equity_curve / portfolio_equity_curve.cummax() - 1.0).min())
 
-        if params == DEFAULT_PARAMS:
+        if verbose:
             tot_ret = float(portfolio_equity_curve.iloc[-1] - 1.0) * 100
             print("\n" + "="*40)
-            print(" WALK-FORWARD OOS RESULTS")
+            print("WALK-FORWARD OOS RESULTS")
             print("="*40)
             print(f"Rebalance Events:       {len(rebalance_dates)}")
             print(f"Total Portfolio Return: {tot_ret:.2f}%")
@@ -250,4 +254,4 @@ def run_walk_forward(params: dict = None, df_master: pd.DataFrame = None, df_tic
 
 
 if __name__ == "__main__":
-    run_walk_forward(DEFAULT_PARAMS)
+    run_walk_forward(DEFAULT_PARAMS, verbose=True)

@@ -1,7 +1,5 @@
 import yfinance as yf
 import pandas as pd
-import requests
-from io import StringIO
 
 class FetchStocks:
     def __init__(self, file):
@@ -11,25 +9,7 @@ class FetchStocks:
         self.tickers = []
 
     def get_all_tickers(self):
-
-        url = 'https://en.wikipedia.org/wiki/List_of_S%26P_500_companies'
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-        }
-
-        r = requests.get(url, headers=headers)
-
-        tables = pd.read_html(StringIO(r.text))
-
-        df = None
-        for table in tables:
-            if 'Symbol' in table.columns and 'GICS Sector' in table.columns:
-                df = table
-                break
-
-        if df is None:
-            raise ValueError("Could not find the S&P 500 table in the Wikipedia response.")
-
+        df = pd.read_html("https://en.wikipedia.org/wiki/List_of_S%26P_500_companies")[0]
         tickers = df['Symbol'].tolist()
         tickers = [t.replace('.', '-') for t in tickers]
         self.tickers = tickers

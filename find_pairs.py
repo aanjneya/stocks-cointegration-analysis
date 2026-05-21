@@ -3,24 +3,23 @@ import numpy as np
 import pandas as pd
 
 
-def calculate_hurst(series: pd.Series) -> float:
+def hurst(series):
 
     ts = np.asarray(series.dropna(), dtype=float)
-    #Not enough data points
+
     if ts.size < 100:
         return np.nan
 
     max_lag = min(ts.size // 2, 128)
-    #Not enough data intervals
+
     if max_lag < 5:
         return np.nan
-    #Lags are time windows spaced logarithmically
+
     lags = np.unique(np.round(np.logspace(np.log10(2), np.log10(max_lag), 24)).astype(int))
-    log_pairs: list[tuple[float, float]] = []
+    log_pairs = []
 
     for lag in lags:
         diff = ts[lag:] - ts[:-lag]
-        #too small sample size for std
         if diff.size < 20:
             continue
 
@@ -29,7 +28,6 @@ def calculate_hurst(series: pd.Series) -> float:
         if np.isfinite(tau) and tau > 0:
             log_pairs.append((float(np.log(lag)), float(np.log(tau))))
 
-    #not enough data
     if len(log_pairs) < 5:
         return np.nan
 
@@ -40,10 +38,9 @@ def calculate_hurst(series: pd.Series) -> float:
     return float(np.clip(h, 0.0, 1.0))
 
 
-def calculate_half_life(series: pd.Series) -> tuple[float, float]:
+def half_life(series):
 
     s = np.asarray(series.dropna(), dtype=float)
-    #sample size too small
     if s.size < 50:
         return np.nan, np.nan
 
@@ -54,31 +51,33 @@ def calculate_half_life(series: pd.Series) -> tuple[float, float]:
     ds = ds[m]
     lag = lag[m]
 
-    #sample size too small
     if ds.size < 30:
         return np.nan, np.nan
 
     x_mat = np.column_stack([np.ones(len(lag)), lag])
     coef, _, _, _ = np.linalg.lstsq(x_mat, ds, rcond=None)
+
     beta = float(coef[1])
-    #No mean life
     if beta >= 0:
         return np.nan, beta
     lam = -beta
-    half_life = float(np.log(2.0) / lam)
+    hl = float(np.log(2.0) / lam)
     
-    return half_life, beta
+    return hl, beta
 
 
-def estimate_spread_ols(df: pd.DataFrame, stock_a: str, stock_b: str) -> pd.Series:
+def estimate_spread_ols(df , stock_a, stock_b):
+
     sub = df[[stock_a, stock_b]].dropna()
     if len(sub) < 2:
         return pd.Series(dtype=float)
+
     y = sub[stock_a].to_numpy(dtype=float)
     x_b = sub[stock_b].to_numpy(dtype=float)
     x_mat = np.column_stack([np.ones(len(sub)), x_b])
     coef, _, _, _ = np.linalg.lstsq(x_mat, y, rcond=None)
     spread = y - (coef[0] + coef[1] * x_b)
+
     return pd.Series(spread, index=sub.index)
 
 
@@ -93,7 +92,8 @@ class FindPairs:
         self.sectored_map = {}
         self.pairs = []
 
-    def get_pairs(self) -> list[str]:
+    def get_pairs(self):
+
         for index, row in self.dfTickers.iterrows():
             ticker = row['Symbol']
             sector = row['GICS Sector']
