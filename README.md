@@ -4,7 +4,7 @@
 ![Optuna](https://img.shields.io/badge/Optimization-Optuna-red.svg)
 ![Statsmodels](https://img.shields.io/badge/Math-Statsmodels-yellow.svg)
 
-> This repository presents a walk-forward statistical arbitrage framework that isolates structural mean-reversion within the S&P 500 utilizing Engle-Granger cointegration, Hurst exponent filtering, and Ornstein-Uhlenbeck half-life estimators. A custom, GIL-bypassed parallel processing architecture (Optuna) is deployed to navigate a 7-dimensional hyperparameter space, aggressively penalizing drawdowns to construct a strictly market-neutral, tranche-scaled portfolio. Through rigorous out-of-sample testing—achieving a **0.71 Sharpe ratio** and a tightly constrained **-1.02% maximum drawdown**—this research validates the mechanics of dynamic pairs trading while empirically documenting the inevitability of alpha decay across shifting macroeconomic regimes.
+> This project is an automated pairs trading system designed to find and trade stock relationships within the S&P 500. By using statistical tests to identify pairs of companies that naturally move together, the strategy automatically executes trades whenever their prices temporarily drift apart. To discover the best settings, the code runs a fast, multi-core optimization engine via Optuna that tests thousands of parameter combinations while aggressively filtering out high-risk setups. In the realistic out-of-sample testing, fully accounting for transaction fees, the system achieved a solid 0.71 Sharpe ratio and kept losses strictly capped at a -1.02% maximum drawdown. Ultimately, this framework provides a practical look at quantitative trading while capturing how a strategy's edge naturally decays over time as market conditions shift.
 
 ---
 
