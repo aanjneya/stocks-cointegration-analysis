@@ -11,7 +11,7 @@
 ## Key Engineering & Quantitative Highlights
 
 * **Strict Backtesting Hygiene:** Complete elimination of look-ahead bias through $T+1$ execution logic. Realistic PnL accounting based on total gross capital exposure, incorporating 5 bps transaction costs on turnover.
-* **Advanced Statistical Filtering:** Pairs are dynamically grouped by GICS subsectors and filtered using **Engle-Granger Cointegration** ($p < 0.05$) and the **Hurst Exponent** ($H < 0.45$).
+* **Advanced Statistical Filtering:** Pairs are grouped by GICS subsectors and filtered using **Engle-Granger Cointegration** ($p < 0.05$) and the **Hurst Exponent** ($H < 0.45$).
 * **Dynamic Risk Management:** Rolling OLS for dynamic hedge ratios, combined with a Tranche System that scales into trades based on Z-score standard deviations while enforcing hard stop-losses.
 * **High-Performance Optimization:** Implemented a multithreaded hyperparameter search via **Optuna**. Architected to spawn isolated CPU processes, completely bypassing the Python Global Interpreter Lock (GIL) for massive performance gains across 14 cores.
 * **Drawdown-Penalized Objective Functions:** The optimization algorithm maximizes the Sharpe Ratio while strictly penalizing configurations that exceed a 10% maximum drawdown, ensuring robust, risk-adjusted returns rather than overfitted theoretical gains.
@@ -20,7 +20,7 @@
 
 ## Analytics, Visualizations & Hyperparameter Dimensionality
 
-A critical phase of this research involved a multi-core optimization of the strategy's 7 parameters using Optuna. The analysis was conducted in two distinct phases after recognizing that the optimizer was aggressively clustering against the initial parameter ceilings.
+A critical phase of this research involved a multi-core optimization of the strategy's 7 parameters using Optuna. The analysis was conducted in two distinct phases after recognizing that the optimizer was clustering against the initial parameter ceilings.
 
 ### 1. The 7-Dimensional Optimization Landscape (Parallel Coordinates)
 
